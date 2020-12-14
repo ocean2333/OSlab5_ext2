@@ -8,7 +8,8 @@
 #define INVALID 0x0001
 #define MAX_DIR_NUM 48
 #define MAX_DATA_BLOCK 4063
-#define MAX_INODE = 1024
+#define MAX_INODE 1024
+#define NOT_FOUND 0x02
 
 typedef struct super_block {
     int32_t magic_num;                  // 幻数
@@ -35,13 +36,7 @@ struct dir_item {               // 目录项一个更常见的叫法是 dirent(d
 
 sp_block SP_BLOCK;
 struct inode inodes[1024];
-struct dir_item current_dir;
-
-void shutdown();
-int touch(char* name,int len);
-int mkdir(char* name,int len);
-int cp(char* name1,char* name2,int len1,int len2);
-void ls();
+struct dir_item current_dir,root_dir;
 
 //初始化ext2
 void init_ext2();
@@ -61,6 +56,12 @@ struct dir_item read_dir_block(uint32_t block_offset,uint32_t item_offset);
 void read_block(uint32_t data_block_offset,char* buf);
 //写回一个block
 void write_block(uint32_t data_block_offset,char* buf);
+//添加文件或文件夹到路径下
+int add_file(struct inode dst_inode,struct dir_item src_inode);
+//在该inode下寻找文件或路径
+struct dir_item find_in_inode(uint32_t inode_to_search,char* name_to_find);
+//对路径分片
+char** split(char* name,int len);
 //操控bit_map
 void set_block_map(uint32_t offset,int value){
     int col = offset/32;

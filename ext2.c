@@ -36,64 +36,10 @@ void init_ext2(){
     }
 
     current_dir = read_dir_block(0,0);
+    root_dir = read_dir_block(0,0);
 }
 
-void shutdown(){
-    char* buf = &SP_BLOCK;
-    disk_write_block(0,buf);
-    disk_write_block(1,buf+512);
-}
 
-int touch(char* name,int len){
-    if(SP_BLOCK.free_block_count == 0 || SP_BLOCK.free_inode_count == 0 || SP_BLOCK.dir_inode_count == MAX_DIR_NUM){
-        printf("error: full");
-        return -1;
-    }
-
-    struct dir_item item;
-    item.inode_id = get_inode_id();
-    uint32_t block = get_block_id;
-    set_inode_map(item.inode_id,1);
-    set_block_map(block,1);
-    item.valid = VALID;
-    item.type = FILE;
-    memcpy(item.name,name,len);
-    
-    inodes[item.inode_id].size = 6;
-    inodes[item.inode_id].file_type = FILE;
-    inodes[item.inode_id].link = 1;
-    inodes[item.inode_id].block_point[0] = block;
-
-    add_item_to_dir_inode(item);
-    return 0;
-}
-
-int mkdir(char* name,int len){
-    if(SP_BLOCK.free_block_count == 0 || SP_BLOCK.free_inode_count == 0 || SP_BLOCK.dir_inode_count == MAX_DIR_NUM){
-        printf("error: full");
-        return -1;
-    }
-
-    struct dir_item item;
-    item.inode_id = get_inode_id();
-    uint32_t block = get_block_id;
-    set_inode_map(item.inode_id,1);
-    set_block_map(block,1);
-    item.valid = VALID; 
-    item.type = DIR;
-    memcpy(item.name,name,len);
-    
-    inodes[item.inode_id].size = 0;
-    inodes[item.inode_id].file_type = DIR;
-    inodes[item.inode_id].link = 0;
-
-    add_item_to_dir_inode(item);
-    return 0;
-}
-
-void ls(){
-    read_block(inodes[current_dir.inode_id].)
-}
 
 void init_dir_inodes(){
     set_inode_map(0,1);
@@ -105,11 +51,11 @@ void init_dir_inodes(){
 
     struct dir_item item;
     item.inode_id =  get_inode_id();
-    memcpy(item.name,"root",5);
+    memcpy(item.name,"~",2);
     item.type = DIR;
     item.valid = VALID;
 
-    write_dir_block(item.inode_id,0,item);
+    write_dir_block(inodes[0].block_point[0],0,item);
 }
 
 void add_item_to_dir_inode(struct dir_item item){
@@ -118,4 +64,15 @@ void add_item_to_dir_inode(struct dir_item item){
     SP_BLOCK.dir_inode_count++;
     memcpy(inodes[0].block_point[block_offset]+item_offset*128,&item,128);
     write_dir_block(block_offset,item_offset,item);
+}
+
+struct dir_item find_in_inode(uint32_t inode_to_search,char* name_to_find){
+    struct inode node = inodes[inode_to_search];
+    for(int i=0;i<node.link;i++){
+        struct dir_item temp = read_dir_block(node.block_point[i/8],i%8);
+        if(strcmp(name_to_find,temp.name)) return temp;
+    }
+    struct dir_item temp;
+    temp.type = NOT_FOUND;
+    return temp;
 }
