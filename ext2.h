@@ -4,12 +4,16 @@
 #define DIR_INODE_NUM 0
 #define DIR 0x00
 #define FILE 0x01
-#define VALID 0x0000
-#define INVALID 0x0001
+#define VALID 0x0001
+#define INVALID 0x0000
 #define MAX_DIR_NUM 48
 #define MAX_DATA_BLOCK 4063
 #define MAX_INODE 1024
 #define NOT_FOUND 0x02
+#define DATA_BLOCK_SIZE 1024
+#define MAX_FILE_NUM 6*8
+#define INODE_ID_OFFSET 1
+#define BLOCK_ID_OFFSET 33
 
 typedef struct super_block {
     int32_t magic_num;                  // 幻数
@@ -38,32 +42,10 @@ sp_block SP_BLOCK;
 struct inode inodes[1024];
 struct dir_item current_dir,root_dir;
 
-//初始化ext2
-void init_ext2();
-//分配一个inode_id
-uint32_t get_inode_id();
-//分配一个block_id
-uint32_t get_block_id();
-//将新建的dir_item添加到dir_inode里管理
-void add_item_to_dir_inode(struct dir_item item);
-//初始化dir_inodes
-void init_dir_inodes();
-//将dir_block的修改写回硬盘
-void write_dir_block(uint32_t block_offset,uint32_t item_offset,struct dir_item item);
-//读取一个dir_block
-struct dir_item read_dir_block(uint32_t block_offset,uint32_t item_offset);
-//读取一个block
-void read_block(uint32_t data_block_offset,char* buf);
-//写回一个block
-void write_block(uint32_t data_block_offset,char* buf);
-//添加文件或文件夹到路径下
-int add_file(struct inode dst_inode,struct dir_item src_inode);
-//在该inode下寻找文件或路径
-struct dir_item find_in_inode(uint32_t inode_to_search,char* name_to_find);
-//对路径分片
-char** split(char* name,int len);
 //操控bit_map
 void set_block_map(uint32_t offset,int value){
+    if(value==1) SP_BLOCK.free_block_count--;
+    if(value==0) SP_BLOCK.free_block_count++;
     int col = offset/32;
     int row = offset%32;
     value = value << row;
@@ -75,6 +57,8 @@ int get_block_map(int offset){
     return (SP_BLOCK.block_map[col] >> row)&1; 
 }
 void set_inode_map(uint32_t offset,int value){
+    if(value==1) SP_BLOCK.free_inode_count--;
+    if(value==0) SP_BLOCK.free_inode_count++;
     int col = offset/32;
     int row = offset%32;
     value = value << row;
@@ -85,5 +69,44 @@ int get_inode_map(int offset){
     int row = offset%32;
     return (SP_BLOCK.inode_map[col] >> row)&1; 
 }
+
+//初始化ext2
+void init_ext2();
+//分配一个inode_id
+uint32_t get_inode_id(){
+    uint32_t id = 0;
+    while(get_inode_map(id)){
+        id++;
+    }
+    return id;
+}
+//分配一个block_id
+uint32_t get_block_id(){
+    uint32_t id = 0;
+    while(get_block_map(id)){
+        id++;
+    }
+    return id;
+}
+
+//初始化dir_inodes
+void init_dir_inodes();
+//将新建的dir_item添加到dir_inode里管理
+void add_item_to_dir_inode(struct dir_item item);
+//将dir_block的修改写回硬盘
+void write_dir_block(uint32_t block_offset,uint32_t item_offset,struct dir_item item);
+//读取一个dir_block
+struct dir_item read_dir_block(uint32_t block_offset,uint32_t item_offset);
+
+//读取一个block
+void read_block(uint32_t data_block_offset,char* buf);
+//写回一个block
+void write_block(uint32_t data_block_offset,char* buf);
+//添加文件或文件夹到路径下
+int add_file(uint32_t dst_inode,struct dir_item src_item);
+//在该inode下寻找文件或路径
+int find_in_inode(uint32_t inode_to_search,char* name_to_find,struct dir_item* item,uint8_t item_type);
+
+
 
 
